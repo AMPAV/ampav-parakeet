@@ -14,8 +14,8 @@ authors = [
 
 requires-python = ">=3.12"
 dependencies = [
-    "ampav-core>=0.0.6",
-    "nemo_toolkit['asr']==2.7.2",
+    "ampav-core>=0.0.10",
+    "nemo_toolkit[asr]==2.7.2",
 ]
 
 [project.urls]
