@@ -1,6 +1,6 @@
 [project]
 name = "ampav-parakeet"
-version = "0.0.10"
+version = "0.0.11"
 description = "Parakeet tooling for the AMPAV environment"
 readme = "README.md"
 license = "Apache-2.0"
