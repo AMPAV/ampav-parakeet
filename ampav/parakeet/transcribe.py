@@ -6,9 +6,8 @@ import logging
 import argparse
 import nemo.collections.asr as nemo_asr
 from ampav.core.media import ChunkedAudio
-from ampav.core.formats.transcript.utils import words_to_paragraphs
 from ampav.core.logging import LOG_FORMAT
-from ampav.core.formats.transcript.webvtt import paragraphs_to_webvtt
+from ampav.core.file_formats.webvtt import paragraphs_to_webvtt
 import os
 
 def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3", 
@@ -58,7 +57,7 @@ def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3
                                                   start_time=w[1],
                                                   end_time=w[2]))
     # we don't have the paragraphs, so we should synthesize them.
-    xscript.paragraphs = words_to_paragraphs(xscript.words)
+    xscript.reformat_paragraphs()
     
     logging.info("Transcription complete")
     output.output = xscript
