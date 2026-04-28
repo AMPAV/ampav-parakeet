@@ -8,17 +8,18 @@ import nemo.collections.asr as nemo_asr
 from ampav.core.media import ChunkedAudio
 from ampav.core.logging import LOG_FORMAT
 from ampav.core.file_formats.webvtt import paragraphs_to_webvtt
+from ampav.core.gpu import ForceComputeDevice
 import os
 
 def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3", 
-                    cpu_only: bool=False,
+                    device: str | None=None,
                     chunk_size: int=30, chunk_overlap: int=5) -> ToolOutput:
     """Transcribe a file using parakeet"""
     
     # create our output structure
     output = ToolOutput(tool_name="parakeet",                        
                         parameters={"model": modelname,
-                                    "device": None,
+                                    "device": device,
                                     "content_source": str(audiofile),                                    
                                     },
                         start_time=time.time())
@@ -26,38 +27,34 @@ def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3
     # set the logging to log into our output structure
     output.setup_logging()
 
-    if cpu_only:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        device = 'cpu'        
-    else:
-        device = 'gpu'
-    output.parameters['device'] = device
-    logging.info(f"Using {device} for transcribing")
-    model: nemo_asr.models.ASRModel = nemo_asr.models.ASRModel.from_pretrained(modelname)        
-    
-    words = []    
-    logging.info(f"Chunking {audiofile} in {chunk_size}s chunks with an overlap of {chunk_overlap}s")
-    with ChunkedAudio(audiofile, 0, sample_rate=16000, channels=1) as ca:        
-        for position, overlap_offset, chunk_duration, samples in ca.get_chunk(chunk_size, chunk_overlap=chunk_overlap):
-            h = model.transcribe([samples], return_hypotheses=True, timestamps=True,
-                                 verbose=False)[0]
-            # text stitching
-            offset = position - overlap_offset
-            new_words = [(x['word'], x['start'] + offset, x['end'] + offset) for x in h.timestamp['word']]
-            while words and words[-1][1] > new_words[0][1]:
-                words.pop()
-            words.extend(new_words)
-            
+        # get the device if we need to
+    if device is None:
+        device="cuda" if torch.cuda.is_available() else "cpu"
+        logging.info(f"Detected device {device}")
+        output.parameters['device'] = device
+
+    with ForceComputeDevice(device):
+        logging.info(f"Using {device} for transcribing")
+        model: nemo_asr.models.ASRModel = nemo_asr.models.ASRModel.from_pretrained(modelname)        
+        words = []    
+        logging.info(f"Chunking {audiofile} in {chunk_size}s chunks with an overlap of {chunk_overlap}s")
+        with ChunkedAudio(audiofile, 0, sample_rate=16000, channels=1) as ca:        
+            for offsets, samples in ca.get_chunks(chunk_size, chunk_overlap=chunk_overlap):
+                start_timestamp = offsets[0] 
+                overlap_length = offsets[1]     
+                h = model.transcribe([samples], return_hypotheses=True, timestamps=True,
+                                    verbose=False)[0]
+                for word in h.timestamp['word']:
+                    words.append(WordSegment.from_str(word['word'], 
+                                                      start_time=float(word['start'] + (start_timestamp - overlap_length)),
+                                                      end_time=float(word['end'] + (start_timestamp - overlap_length)),
+                                                      )) 
+                
     # get the duration of the media file.
     av = AVMetadata.from_file(audiofile)
-    xscript = Transcript(text=" ".join([x[0] for x in words]),
+    xscript = Transcript(words= words,                         
                          media_duration=av.duration)
-    for w in words:
-        xscript.words.append(WordSegment.from_str(w[0],
-                                                  start_time=w[1],
-                                                  end_time=w[2]))
-    # we don't have the paragraphs, so we should synthesize them.
-    xscript.reformat_paragraphs()
+    xscript.remove_overlapping_words(separator=' ')
     
     logging.info("Transcription complete")
     output.output = xscript
@@ -69,7 +66,7 @@ def cli_parakeet_transcribe():
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="File to transcribe using whisper")
     parser.add_argument("--model", type=str, default="nvidia/parakeet-tdt-0.6b-v3", help="Model to use")
-    parser.add_argument("--cpu_only", action="store_true", help="Only use CPU")
+    parser.add_argument("--device", type=str, default=None, help="Device to use")
     parser.add_argument("--debug", action="store_true", help="Enable debugging")
     parser.add_argument("--chunk_size", type=int, default=30, help="Size of chunks to process")
     parser.add_argument("--chunk_overlap", type=int, default=5, help="Number of seconds of audio overlap")
@@ -84,10 +81,12 @@ def cli_parakeet_transcribe():
     logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG if args.debug else logging.INFO)
     
     xscript = transcribe_file(args.file, modelname=args.model, 
-                              cpu_only=args.cpu_only,
+                              device=args.device,
                               chunk_size=args.chunk_size, chunk_overlap=args.chunk_overlap)
     if args.webvtt:
         print(paragraphs_to_webvtt(xscript.output.paragraphs))
     else:
         print(xscript.model_dump_yaml())
    
+if __name__ == "__main__":
+    cli_parakeet_transcribe()
