@@ -65,8 +65,7 @@ def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3
     xscript = Transcript(words= words,                         
                          media_duration=av.duration)
     xscript.remove_overlapping_words()
-    
-    logging.info("Transcription complete")
+    logging.info(f"Finished transcript, {len(xscript.paragraphs)} paragraphs, {len(xscript.words)} words.")
     output.output = xscript
     output.end_time = time.time()
     return output
@@ -79,8 +78,8 @@ def cli_parakeet_transcribe():
     parser.add_argument("--model", type=str, default="nvidia/parakeet-tdt-0.6b-v3", help="Model to use")
     parser.add_argument("--device", type=str, default=None, help="Device to use")
     parser.add_argument("--debug", action="store_true", help="Enable debugging")
-    parser.add_argument("--chunk_size", type=int, default=30, help="Size of chunks to process")
-    parser.add_argument("--chunk_overlap", type=int, default=5, help="Number of seconds of audio overlap")
+    parser.add_argument("--chunk_size", type=int, default=60, help="Size of chunks to process")
+    parser.add_argument("--chunk_overlap", type=int, default=0, help="Number of seconds of audio overlap")
     parser.add_argument("--format", choices=['yaml', 'json', 'pickle'], default='yaml', help="Output format, default yaml")
     args = parser.parse_args()
 
