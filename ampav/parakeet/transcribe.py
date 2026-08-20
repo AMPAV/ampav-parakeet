@@ -73,7 +73,7 @@ def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3
 
 def cli_parakeet_transcribe():
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", type=Path, help="File to transcribe using whisper")
+    parser.add_argument("file", type=Path, help="File to transcribe using parakeet")
     parser.add_argument("output", type=Path, help="Output file")
     parser.add_argument("--model", type=str, default="nvidia/parakeet-tdt-0.6b-v3", help="Model to use")
     parser.add_argument("--device", type=str, default=None, help="Device to use")
