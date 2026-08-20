@@ -1,6 +1,6 @@
 [project]
 name = "ampav-parakeet"
-version = "0.0.12"
+dynamic = ["version"]
 description = "Parakeet tooling for the AMPAV environment"
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,7 +27,9 @@ Issues = "https://github.com/AMPAV/ampav-parakeet/issues"
 [project.scripts]
 ampav_parakeet_transcribe = "ampav.parakeet.transcribe:cli_parakeet_transcribe"
 
-
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "ampav.parakeet.__version__"}

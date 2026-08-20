@@ -9,6 +9,7 @@ from ampav.core.media import ChunkedAudio
 from ampav.core.logging import LOG_FORMAT, ListLoggingHandler
 from ampav.core.gpu import ForceComputeDevice
 from ampav.core.utils import dump_data
+from . import __version__
 
 def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3", 
                     device: str | None=None,
@@ -27,7 +28,8 @@ def transcribe_file(audiofile: Path, modelname: str="nvidia/parakeet-tdt-0.6b-v3
     """
     
     # create our output structure
-    output = ToolOutput(tool_name="parakeet",                        
+    output = ToolOutput(tool_name="parakeet",   
+                        tool_version=__version__,                     
                         parameters={"model": modelname,
                                     "device": device,
                                     "content_source": str(audiofile),                                    
